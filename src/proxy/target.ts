@@ -1,7 +1,8 @@
-import {IProxyAnswer, IProxyRequest, isPlainObject} from './proxy';
+import {guid, IProxyAnswer, IProxyArg, IProxyRequest, isPlainObject, isPrimitive} from './proxy';
 
 export class TargetProxy {
     private objects = new Map<string, any>();
+    private callbacks = new Map<string, any>();
 
     constructor(private worker) {
         const onmessage = this.worker.onmessage;
@@ -34,6 +35,7 @@ export class TargetProxy {
     }
 
     private setAction(target, requestId, [property, value]) {
+        value = this.convertFromProxy(value);
         target[property] = value;
         const answer: IProxyAnswer = { requestId, type: 'plain' };
         this.worker.postMessage(answer);
@@ -55,6 +57,7 @@ export class TargetProxy {
     }
 
     private applyAction(target, requestId, [args]) {
+        args = args.map((arg) => this.convertFromProxy(arg));
         const result = target.apply(null, args);
         this.register(requestId, result);
         let answer: IProxyAnswer;
@@ -66,5 +69,40 @@ export class TargetProxy {
             answer = {requestId, type: 'plain', result};
         }
         this.worker.postMessage(answer);
+    }
+
+    private convertFromProxy(value: IProxyArg): any {
+        if (value.type === 'plain') {
+            return value.value;
+
+        } else  if (value.type === 'function') {
+            const callbackId = value.value;
+            const callback = (...args) => {
+                const result = args.map((arg) => this.convertToProxy(arg));
+                const answer: IProxyAnswer = {requestId: callbackId, type: 'function', result};
+                this.worker.postMessage(answer);
+            };
+            this.callbacks.set(callbackId, callback);
+            return callback;
+
+        } else  if (value.type === 'proxy') {
+            return value.value;
+        }
+    }
+
+    private convertToProxy(obj: any): IProxyArg {
+        if (isPrimitive(obj) || isPlainObject(obj)) {
+            return {type: 'plain', value: obj};
+
+        } else if (typeof obj === 'function') {
+            const callbackId = guid();
+            this.callbacks.set(callbackId, obj);
+            return {type: 'function', value: callbackId};
+
+        } else {
+            const objectId = guid();
+            this.objects.set(objectId, obj);
+            return {type: 'proxy', value: objectId};
+        }
     }
 }

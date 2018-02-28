@@ -3,5 +3,10 @@ import { WorkerProxyObject } from './proxy/worker';
 console.warn('Init Worker');
 
 const window: any = WorkerProxyObject('window');
-window.alert('Hello From Worker');
-window.document.body.innerText = 'Hello From Worker';
+
+window.document.body.innerText = 'Click me!';
+
+window.document.body.addEventListener('click', async (mouseEvent) => {
+    const screenX = await mouseEvent.screenX;
+    window.alert('Hello From Worker! MouseEvent.screenX=' + screenX);
+}, false);

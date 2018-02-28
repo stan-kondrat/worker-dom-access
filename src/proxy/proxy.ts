@@ -8,8 +8,13 @@ export interface IProxyRequest {
 
 export interface IProxyAnswer {
     requestId: string;
-    type: string; // 'proxy' | 'plain'
-    result?: string;
+    type: 'plain' | 'function' | 'proxy';
+    result?: any;
+}
+
+export interface IProxyArg {
+    type: 'plain' | 'function' | 'proxy';
+    value: any;
 }
 
 export interface IDeferred {
@@ -41,7 +46,12 @@ export function isPlainObject(obj) {
     return true;
 }
 
+export function isPrimitive(test) {
+    return (test !== Object(test));
+}
+
 export function guid() {
     const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
     return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
 }
+
